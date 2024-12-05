@@ -34,7 +34,9 @@ static const gapm_config_t gapm_cfg = {
 	.dflt_link_policy = 0, /* BT Classic only */
 };
 
-static const char *device_name = "ALIF_ZEPHYR";
+#define DEVICE_NAME CONFIG_BLE_DEVICE_NAME
+
+static const char *device_name = DEVICE_NAME;
 /* Store advertising activity index for re-starting after disconnection */
 static uint8_t adv_actv_idx;
 
