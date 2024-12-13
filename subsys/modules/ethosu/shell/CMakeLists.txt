@@ -13,4 +13,7 @@ add_subdirectory(
     ${CMAKE_BINARY_DIR}/lib/ethosu_utils
 )
 
-target_sources(app PRIVATE src/main.cpp)
+target_sources(app PRIVATE
+		src/ethosu_worker.cpp
+		src/ethosu_shell.cpp
+)
