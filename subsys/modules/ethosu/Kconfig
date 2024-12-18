@@ -15,3 +15,11 @@ config ALIF_ETHOSU_SHELL
 		select REQUIRES_FULL_LIBCPP
 	help
 		Enable Ethos-U55 commands
+
+config ALIF_ETHOSU_SHELL_THREAD_PRIORITY
+	int "Priority for thread running the NPU inference"
+	default 10
+
+config ALIF_ETHOSU_SHELL_THREAD_STACKSIZE
+	int "Stack size for thread running the NPU inference"
+	default 1024
