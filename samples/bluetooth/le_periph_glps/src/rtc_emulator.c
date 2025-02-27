@@ -15,7 +15,12 @@
 struct k_thread rtc_thread_data;
 
 /* Dummy timestamp info */
+
+#if !CONFIG_ALIF_BLE_ROM_IMAGE_V1_0 /* ROM version > 1.0 */
+static prf_date_time_t device_base_time = {
+#else
 static struct prf_date_time device_base_time = {
+#endif /* !CONFIG_ALIF_BLE_ROM_IMAGE_V1_0 */
 	.year = 2024,
 	.month = 1,
 	.day = 1,
