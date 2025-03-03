@@ -26,14 +26,15 @@
 
 /*  Profile definitions */
 #include "prf.h"
-#include "cgmp_common.h"
-#include "cgms.h"
-#include "cgms_msg.h"
+// #include "cgmp_common.h"
+// #include "cgms.h"
+#include "cgmss.h"
+// #include "cgms_msg.h"
 #include "prf_types.h"
 #include "rwprf_config.h"
 
-#include "bass.h"
-#include "bas.h"
+// #include "bass.h"
+// #include "bas.h"
 #include "gapc_msg.h"
 
 #include "se_service.h"
@@ -56,7 +57,7 @@ static const char device_name[] = DEVICE_NAME;
 
 /* State variables for BLE connection and services */
 static bool READY_TO_SEND;
-static bool READY_TO_SEND_BASS;
+// static bool READY_TO_SEND_BASS;
 static bool connected;
 static bool resolved;
 static gapc_pairing_keys_t stored_keys;
@@ -66,7 +67,7 @@ static uint8_t temp_conidx;
 /* Store advertising activity index for re-starting after disconnection */
 static uint8_t adv_actv_idx;
 
-static cgm_status_t cgms_status;
+// static cgm_status_t cgms_status;
 
 /* Semaphores definition */
 K_SEM_DEFINE(init_sem, 0, 1);
@@ -119,6 +120,7 @@ void on_address_resolved_cb(uint16_t status, const gap_addr_t *p_addr, const gap
 	if (resolved) {
 		LOG_INF("Known peer device");
 		gapc_le_connection_cfm(temp_conidx, 0, &(bond_data_saved));
+		READY_TO_SEND = true;
 	} else {
 		LOG_INF("Unknown peer device");
 		gapc_le_connection_cfm(temp_conidx, 0, NULL);
@@ -211,114 +213,139 @@ static const gapc_connection_info_cb_t gapc_con_inf_cbs = {
 /*
  * CGMS callbacks
  */
+static void on_set_session_start_time_req(uint8_t conidx, uint16_t token, co_buf_t* p_buf)
+{
+}
 
-static void on_cgms_meas_send_complete(uint8_t conidx, uint16_t status)
+static void on_value_req(uint8_t conidx, uint8_t char_type, uint16_t token)
+{
+}
+
+static void on_control_req(uint8_t conidx, uint8_t char_type, uint16_t token, co_buf_t* p_buf)
+{
+}
+
+static void on_get_cccd_req(uint8_t conidx, uint8_t char_type, uint16_t token)
+{
+}
+
+static void on_set_cccd_req(uint8_t conidx, uint8_t char_type, uint16_t token, co_buf_t* p_buf)
+{
+}
+
+static void on_sent(uint8_t conidx, uint8_t char_type, uint16_t status)
 {
 	READY_TO_SEND = true;
 }
 
-static void on_bond_data_upd(uint8_t conidx, uint8_t char_code, uint16_t cfg_val)
-{
-	switch (cfg_val) {
-	case PRF_CLI_STOP_NTFIND:
-		LOG_INF("Client requested stop notification/indication (conidx: %u)", conidx);
-		READY_TO_SEND = false;
-		break;
-	case PRF_CLI_START_NTF:
-		LOG_INF("Client requested start notification/indication (conidx: %u)", conidx);
-			READY_TO_SEND = true;
-			LOG_INF("Sending measurements");
-		break;
+// static void on_bond_data_upd(uint8_t conidx, uint8_t char_code, uint16_t cfg_val)
+// {
+// 	switch (cfg_val) {
+// 	case PRF_CLI_STOP_NTFIND:
+// 		LOG_INF("Client requested stop notification/indication (conidx: %u)", conidx);
+// 		READY_TO_SEND = false;
+// 		break;
+// 	case PRF_CLI_START_NTF:
+// 		LOG_INF("Client requested start notification/indication (conidx: %u)", conidx);
+// 			READY_TO_SEND = true;
+// 			LOG_INF("Sending measurements");
+// 		break;
 
-	case PRF_CLI_START_IND:
-	default:
-		break;
-	}
-}
+// 	case PRF_CLI_START_IND:
+// 	default:
+// 		break;
+// 	}
+// }
 
-static void on_rd_status_req(uint8_t conidx, uint32_t token)
-{
-	uint16_t status = 0;
-	uint16_t err = cgms_rd_status_cfm(conidx, token, status, &(cgms_status));
+// static void on_rd_status_req(uint8_t conidx, uint32_t token)
+// {
+// 	uint16_t status = 0;
+// 	uint16_t err = cgms_rd_status_cfm(conidx, token, status, &(cgms_status));
 
-	if (err) {
-		LOG_ERR(" Error sending status 0x%04x", err);
-	}
-}
+// 	if (err) {
+// 		LOG_ERR(" Error sending status 0x%04x", err);
+// 	}
+// }
 
-static void on_re_sess_start_time_req(uint8_t conidx, uint32_t token)
-{
-}
+// static void on_re_sess_start_time_req(uint8_t conidx, uint32_t token)
+// {
+// }
 
-static void on_rd_sess_run_time_req(uint8_t conidx, uint32_t token)
-{
-}
+// static void on_rd_sess_run_time_req(uint8_t conidx, uint32_t token)
+// {
+// }
 
-static void on_sess_start_time_upd(uint8_t conidx, const cgm_sess_start_time_t *p_sess_start_time)
-{
-}
+// static void on_sess_start_time_upd(uint8_t conidx, const cgm_sess_start_time_t *p_sess_start_time)
+// {
+// }
 
-static void on_racp_req(uint8_t conidx, uint8_t op_code, uint8_t func_operator, uint8_t filter_type,
-			uint16_t min_time_offset, uint16_t max_time_offset)
-{
-}
+// static void on_racp_req(uint8_t conidx, uint8_t op_code, uint8_t func_operator, uint8_t filter_type,
+// 			uint16_t min_time_offset, uint16_t max_time_offset)
+// {
+// }
 
-static void on_racp_rsp_send_cmp(uint8_t conidx, uint16_t status)
-{
-}
+// static void on_racp_rsp_send_cmp(uint8_t conidx, uint16_t status)
+// {
+// }
 
-static void on_ops_ctrl_pt_req(uint8_t conidx, uint8_t op_code,
-			       const union cgm_ops_operand *p_operand)
-{
-}
+// static void on_ops_ctrl_pt_req(uint8_t conidx, uint8_t op_code,
+// 			       const union cgm_ops_operand *p_operand)
+// {
+// }
 
-static void on_ops_ctrl_pt_rsp_send_cmp(uint8_t conidx, uint16_t status)
-{
-}
+// static void on_ops_ctrl_pt_rsp_send_cmp(uint8_t conidx, uint16_t status)
+// {
+// }
 
-static const cgms_cb_t cgms_cb = {
-	.cb_meas_send_cmp = on_cgms_meas_send_complete,
-	.cb_bond_data_upd = on_bond_data_upd,
-	.cb_rd_status_req = on_rd_status_req,
-	.cb_rd_sess_start_time_req = on_re_sess_start_time_req,
-	.cb_rd_sess_run_time_req = on_rd_sess_run_time_req,
-	.cb_sess_start_time_upd = on_sess_start_time_upd,
-	.cb_racp_req = on_racp_req,
-	.cb_racp_rsp_send_cmp = on_racp_rsp_send_cmp,
-	.cb_ops_ctrl_pt_req = on_ops_ctrl_pt_req,
-	.cb_ops_ctrl_pt_rsp_send_cmp = on_ops_ctrl_pt_rsp_send_cmp,
+static const cgmss_cbs_t cgms_cb = {
+	.cb_set_session_start_time_req = on_set_session_start_time_req,
+	.cb_value_req = on_value_req,
+	.cb_control_req = on_control_req,
+	.cb_get_cccd_req = on_get_cccd_req,
+	.cb_set_cccd_req = on_set_cccd_req,
+	.cb_sent = on_sent,
+	// .cb_meas_send_cmp = on_cgms_meas_send_complete,
+	// .cb_bond_data_upd = on_bond_data_upd,
+	// .cb_rd_status_req = on_rd_status_req,
+	// .cb_rd_sess_start_time_req = on_re_sess_start_time_req,
+	// .cb_rd_sess_run_time_req = on_rd_sess_run_time_req,
+	// .cb_sess_start_time_upd = on_sess_start_time_upd,
+	// .cb_racp_req = on_racp_req,
+	// .cb_racp_rsp_send_cmp = on_racp_rsp_send_cmp,
+	// .cb_ops_ctrl_pt_req = on_ops_ctrl_pt_req,
+	// .cb_ops_ctrl_pt_rsp_send_cmp = on_ops_ctrl_pt_rsp_send_cmp,
 };
 
 /*
  * Battery service callbacks
  */
-static void on_bass_batt_level_upd_cmp(uint16_t status)
-{
-	READY_TO_SEND_BASS = true;
-}
+// static void on_bass_batt_level_upd_cmp(uint16_t status)
+// {
+// 	READY_TO_SEND_BASS = true;
+// }
 
-static void on_bass_bond_data_upd(uint8_t conidx, uint8_t ntf_ind_cfg)
-{
-	switch (ntf_ind_cfg) {
-	case PRF_CLI_STOP_NTFIND:
-		LOG_INF("Client requested BASS stop notification/indication (conidx: %u)", conidx);
-		READY_TO_SEND_BASS = false;
-		break;
-	case PRF_CLI_START_NTF:
-	case PRF_CLI_START_IND:
-		LOG_INF("Client requested BASS start notification/indication (conidx: %u)", conidx);
-		READY_TO_SEND_BASS = true;
-		LOG_DBG("Sending battery level");
-		break;
-	default:
-		break;
-	}
-}
+// static void on_bass_bond_data_upd(uint8_t conidx, uint8_t ntf_ind_cfg)
+// {
+// 	switch (ntf_ind_cfg) {
+// 	case PRF_CLI_STOP_NTFIND:
+// 		LOG_INF("Client requested BASS stop notification/indication (conidx: %u)", conidx);
+// 		READY_TO_SEND_BASS = false;
+// 		break;
+// 	case PRF_CLI_START_NTF:
+// 	case PRF_CLI_START_IND:
+// 		LOG_INF("Client requested BASS start notification/indication (conidx: %u)", conidx);
+// 		READY_TO_SEND_BASS = true;
+// 		LOG_DBG("Sending battery level");
+// 		break;
+// 	default:
+// 		break;
+// 	}
+// }
 
-static const bass_cb_t bass_cb = {
-	.cb_batt_level_upd_cmp = on_bass_batt_level_upd_cmp,
-	.cb_bond_data_upd = on_bass_bond_data_upd,
-};
+// static const bass_cb_t bass_cb = {
+// 	.cb_batt_level_upd_cmp = on_bass_batt_level_upd_cmp,
+// 	.cb_bond_data_upd = on_bass_bond_data_upd,
+// };
 
 /*
  * Security callbacks
@@ -393,6 +420,7 @@ static void on_pairing_succeed(uint8_t conidx, uint32_t metainfo, uint8_t pairin
 	bool bonded = gapc_is_bonded(conidx);
 	if (bonded) {
 		LOG_INF("Peer device bonded");
+		READY_TO_SEND = true;
 	}
 }
 
@@ -528,7 +556,7 @@ static uint16_t set_advertising_data(uint8_t actv_idx)
 
 	/* gatt service identifier */
 	uint16_t svc = GATT_SVC_CONTINUOUS_GLUCOSE_MONITORING;
-	uint16_t svc2 = GATT_SVC_BATTERY_SERVICE;
+	uint16_t svc2 = GATT_SVC_BATTERY;
 
 	const size_t device_name_len = sizeof(device_name) - 1;
 	const uint16_t adv_device_name = GATT_HANDLE_LEN + device_name_len;
@@ -660,7 +688,7 @@ static uint16_t create_advertising(void)
 	gapm_le_adv_create_param_t adv_create_params = {
 		.prop = GAPM_ADV_PROP_UNDIR_CONN_MASK,
 		.disc_mode = GAPM_ADV_MODE_GEN_DISC,
-		.max_tx_pwr = 0,
+		.tx_pwr = 0,
 		.filter_pol = GAPM_ADV_ALLOW_SCAN_ANY_CON_ANY,
 		.prim_cfg = {
 				.adv_intv_min = 160, /* 100 ms */
@@ -683,13 +711,16 @@ static void server_configure(void)
 {
 	uint16_t err;
 	uint16_t start_hdl = 0;
-	struct cgms_db_cfg cgms_cfg;
+	// struct cgms_db_cfg cgms_cfg;
 
-	cgms_cfg.cgm_feature = CGM_FEAT_HYPO_ALERT_SUP_BIT | CGM_FEAT_SENSOR_MALFUNC_DETEC_SUP_BIT;
-	cgms_cfg.type_sample = CGM_TYPE_SMP_CAPILLARY_WHOLE_BLOOD;
-	cgms_cfg.sample_location = CGM_SMP_LOC_FINGER;
+	// cgms_cfg.cgm_feature = CGM_FEAT_HYPO_ALERT_SUP_BIT | CGM_FEAT_SENSOR_MALFUNC_DETEC_SUP_BIT;
+	// cgms_cfg.type_sample = CGM_TYPE_SMP_CAPILLARY_WHOLE_BLOOD;
+	// cgms_cfg.sample_location = CGM_SMP_LOC_FINGER;
+	uint8_t cgmss_cfg_bf = 0; 
 
-	err = prf_add_profile(TASK_ID_CGMS, local_sec_level, 0, &cgms_cfg, &cgms_cb, &start_hdl);
+	err = prf_add_profile(TASK_ID_CGMSS, local_sec_level, 0, &cgmss_cfg_bf, &cgms_cb, &start_hdl);
+
+	// err = cgmss_add(0, &cgms_cb);
 
 	if (err) {
 		LOG_ERR("Error %u adding profile", err);
@@ -711,24 +742,41 @@ void on_gapm_process_complete(uint32_t metainfo, uint16_t status)
 	create_advertising();
 }
 
+uint16_t glucose = 0x00AA;
+uint16_t time_offset_minutes = 0x00BB;
+
 /*  Generate and send dummy data*/
 static void send_measurement(uint16_t current_value)
 {
 	uint16_t err;
 	/* Dummy measurement data */
-	cgm_meas_value_t p_meas = {
-		.flags = CGM_MEAS_FLAGS_CGM_TREND_INFO_BIT | CGM_MEAS_FLAGS_CGM_QUALITY_BIT,
-		.gluc_concent = current_value - 20,
-		.time_offset = current_value - 69,
-		.warn = 0,
-		.cal_temp = 0,
-		.sensor_status = CGM_MEAS_ANNUNC_STATUS_DEV_BATT_LOW_BIT,
-		.trend_info = current_value - 50,
-	};
+	glucose = (glucose >= 0x00DD ? 0x00A9 : glucose) + 1;
+	time_offset_minutes = (time_offset_minutes >= 0x00EE ? 0x00BA : time_offset_minutes) + 1;
+	
+	    //! [APP_CONTINUOUS_GLUCOSE_SERVER_SEND_MEASUREMENT]
+	    co_buf_t* p_buf;
+	    uint8_t* p_data;
+	
+	    cgms_buf_alloc(&p_buf, CGMS_MEASUREMENT_MIN_LEN);
+	    p_data = co_buf_data(p_buf);
+	
+	    // Size field
+	    *p_data++ = CGMS_MEASUREMENT_MIN_LEN;
+	    // Flags field
+	    *p_data++ = 0u;
+	    // CGM Glucose Concentration field
+	    co_write16(p_data, co_htole16(glucose));
+	    p_data += 2;
+	    // Time Offset field
+	    co_write16(p_data, co_htole16(time_offset_minutes));
+	
+	    err = cgmss_send_measurement(0, p_buf);
+	    co_buf_release(p_buf);
+	    //! [APP_CONTINUOUS_GLUCOSE_SERVER_SEND_MEASUREMENT]
 
 	/* Send measurement to connected device */
 	/* Set 0 to first parameter to send only to the first connected peer device */
-	err = cgms_meas_send(0, &p_meas);
+	// err = cgmss_send_measurement(0, &p_meas);
 
 	if (err) {
 		LOG_ERR("Error %u sending measurement", err);
@@ -752,38 +800,39 @@ void cgms_process(uint16_t measurement)
 		send_measurement(measurement);
 		READY_TO_SEND = false;
 	} else if (!connected) {
+		LOG_WRN("NOT CONNECTED OR NOT READY TO SEND");
 		LOG_DBG("Waiting for peer connection...\n");
 		k_sem_take(&conn_sem, K_FOREVER);
 	}
 }
 
-static void config_battery_service(void)
-{
-	uint16_t err;
-	struct bass_db_cfg bass_cfg;
-	uint16_t start_hdl = 0;
+// static void config_battery_service(void)
+// {
+// 	uint16_t err;
+// 	struct bass_db_cfg bass_cfg;
+// 	uint16_t start_hdl = 0;
 
-	bass_cfg.bas_nb = 1;
-	bass_cfg.features[0] = 1;
+// 	bass_cfg.bas_nb = 1;
+// 	bass_cfg.features[0] = 1;
 
-	err = prf_add_profile(TASK_ID_BASS, 0, 0, &bass_cfg, &bass_cb, &start_hdl);
-}
+// 	err = prf_add_profile(TASK_ID_BASS, 0, 0, &bass_cfg, &bass_cb, &start_hdl);
+// }
 
-static void battery_process(void)
-{
-	uint16_t err;
-	/* Fixed value for demonstrating purposes */
-	uint8_t battery_level = 99;
+// static void battery_process(void)
+// {
+// 	uint16_t err;
+// 	/* Fixed value for demonstrating purposes */
+// 	uint8_t battery_level = 99;
 
-	if (READY_TO_SEND_BASS) {
-		/* Sending dummy battery level to first battery instance*/
-		err = bass_batt_level_upd(BATT_INSTANCE, battery_level);
+// 	if (READY_TO_SEND_BASS) {
+// 		/* Sending dummy battery level to first battery instance*/
+// 		err = bass_batt_level_upd(BATT_INSTANCE, battery_level);
 
-		if (err) {
-			LOG_ERR("Error %u sending battery level", err);
-		}
-	}
-}
+// 		if (err) {
+// 			LOG_ERR("Error %u sending battery level", err);
+// 		}
+// 	}
+// }
 
 static int keys_settings_set(const char *name, size_t len_rd,
 			settings_read_cb read_cb, void *cb_arg)
@@ -866,7 +915,7 @@ int main(void)
 		return err;
 	}
 
-	config_battery_service();
+	// config_battery_service();
 
 	LOG_DBG("Waiting for init...\n");
 	k_sem_take(&init_sem, K_FOREVER);
@@ -883,7 +932,8 @@ int main(void)
 		current_value = read_sensor_value(current_value);
 
 		cgms_process(current_value);
-		battery_process();
+		LOG_DBG("WHILE 1 WORKS");
+		// battery_process();
 	}
 	return -ENOTSUP;
 }
