@@ -31,9 +31,6 @@
 #include "shared_control.h"
 #include "address_verification.h"
 
-
-
-
 #include "gapm_le_scan.h"
 #include "gapm_le_init.h"
 #include "co_time.h"
@@ -41,68 +38,44 @@
 
 #include "batt_cli.h"
 
+LOG_MODULE_REGISTER(main, LOG_LEVEL_DBG);
+
 K_SEM_DEFINE(init_sem, 0, 1);
-
-
-// typedef struct app_env_
-// {
-//     /// Auto disconnect timer
-//     co_timer_t timer;
-//     /// Peripheral BD address
-//     gap_bdaddr_t    periph_addr;
-//     /// SCAN activity index
-//     uint8_t         scan_actv_idx;
-//     /// INIT activity index
-//     uint8_t         init_actv_idx;
-//     /// Connection index
-//     uint8_t         conidx;
-//     /// Used to know if peripheral found
-//     bool            periph_found;
-// } app_env_t;
 
 typedef struct central_env_struct
 {
-	/// Peripheral BD address
-	gap_bdaddr_t    periph_addr;
-	/// Used to know if peripheral found
-	bool            periph_found;
-	/* connection index */
+	gap_bdaddr_t periph_addr;
+	bool periph_found;
 	uint8_t conidx;
-	/* Scan activity index */
 	uint8_t scan_actv_idx;
-	/* Initiate activity index */
 	uint8_t init_actv_idx;
-	/* timer */
 	co_timer_t timer; 
-	/* connection status */
 	bool connected;
 } central_env_t;
 
 static central_env_t central_env;
 
-
 static gapm_le_scan_param_t param = {
 	.type				= GAPM_SCAN_TYPE_GEN_DISC,
 	.prop				= GAPM_SCAN_PROP_PHY_1M_BIT,
 	.dup_filt_pol			= GAPM_DUP_FILT_DIS,
-	.scan_param_1m.scan_intv	= 60, // 100ms
-	.scan_param_1m.scan_wd		= 60, // 50ms
+	.scan_param_1m.scan_intv	= 60, // 37.5,s
+	.scan_param_1m.scan_wd		= 60, // 37.5ms
 	.scan_param_coded.scan_intv	= 0, // disabled
 	.scan_param_coded.scan_wd	= 0, // disabled
 	.duration			= 0,
 	.period				= 0,
 };
 
-
-
-LOG_MODULE_REGISTER(main, LOG_LEVEL_DBG);
+enum central_events
+{
+	DEVICE_CONFIGURED,
+	PERIPHERAL_FOUND,
+	PERIPHERAL_CONNECTED,
+	INITIATION_STOPPED,
+};
 
 #define APPEARANCE  (0x0000)
-#define DEVICE_CONFIGURED	(0)
-#define PERIPHERAL_FOUND	(1)
-#define PERIPHERAL_CONNECTED	(2)
-#define INITIATION_STOPPED	(3)
-#define TIMER_EXPIRED		(4)
 
 static void le_central_process(uint8_t event, uint16_t status, const void *p_param);
 
@@ -144,11 +117,6 @@ static void on_le_connection_req(uint8_t conidx, uint32_t metainfo, uint8_t actv
 
 	LOG_HEXDUMP_DBG(p_peer_addr->addr, GAP_BD_ADDR_LEN, "Peer BD address");
 
-	// conn_status = BT_CONN_STATE_CONNECTED;
-	// ctrl.connected = true;
-
-	// k_sem_give(&conn_sem);
-
 	LOG_DBG("Please enable notifications on peer device..");
 
 	printk("calling le cnetral process peripheral connected\n");
@@ -157,20 +125,8 @@ static void on_le_connection_req(uint8_t conidx, uint32_t metainfo, uint8_t actv
 
 static void on_disconnection(uint8_t conidx, uint32_t metainfo, uint16_t reason)
 {
-	// uint16_t err;
-
 	LOG_INF("Connection index %u disconnected for reason 0x%02X", conidx, reason);
 	central_env.connected = false;
-
-	// err = start_le_adv(adv_actv_idx);
-	// if (err) {
-	// 	LOG_ERR("Error restarting advertising: %u", err);
-	// } else {
-	// 	LOG_DBG("Restarting advertising");
-	// }
-
-	// conn_status = BT_CONN_STATE_DISCONNECTED;
-	// ctrl.connected = false;
 
 	uint16_t status = gapm_le_start_scan(central_env.scan_actv_idx, &param);
 	if (status) {
@@ -182,25 +138,17 @@ static void on_disconnection(uint8_t conidx, uint32_t metainfo, uint16_t reason)
 
 static void on_appearance_get(uint8_t conidx, uint32_t metainfo, uint16_t token)
 {
-	/* Send 'unknown' appearance */
 	gapc_le_get_appearance_cfm(conidx, token, GAP_ERR_NO_ERROR, 0);
 }
 
 static void on_appearance_set(uint8_t conidx, uint32_t metainfo, uint16_t token, uint16_t appearance)
 {
-	// appearence = APPEARANCE;
 }
 
 static void on_name_get(uint8_t conidx, uint32_t metainfo, uint16_t token, uint16_t offset,
 			uint16_t max_len)
 {
-	// const size_t device_name_len = sizeof(device_name) - 1;
-	// const size_t short_len = (device_name_len > max_len ? max_len : device_name_len);
-
-	// gapc_le_get_name_cfm(conidx, token, GAP_ERR_NO_ERROR, device_name_len, short_len,
-	// 		     (const uint8_t *)device_name);
 }
-
 
 static const gapc_connection_info_cb_t gapc_con_inf_cbs = {
 	.disconnected = on_disconnection,
@@ -215,7 +163,6 @@ static void on_key_received(uint8_t conidx, uint32_t metainfo, const gapc_pairin
 	LOG_WRN("Unexpected key received key on conidx %u", conidx);
 }
 
-
 static const gapc_connection_req_cb_t gapc_con_cbs = {
 	.le_connection_req = on_le_connection_req,
 };
@@ -227,7 +174,6 @@ static const gapc_security_cb_t gapc_sec_cbs = {
 
 /* All callbacks in this struct are optional */
 static const gapc_le_config_cb_t gapc_le_cfg_cbs;
-
 
 #if !CONFIG_ALIF_BLE_ROM_IMAGE_V1_0 /* ROM version > 1.0 */
 static void on_gapm_err(uint32_t metainfo, uint8_t code)
@@ -269,12 +215,10 @@ static const gapm_callbacks_t gapm_cbs = {
 
 static void on_init_proc_cmp(uint32_t token, uint8_t proc_id, uint8_t actv_idx, uint16_t status)
 {
-//     DUMP_STR(0, "INIT_PROC_CMP(%d, %d, %d, %d)\n", token, proc_id, actv_idx, status);
 }
 
 static void on_init_stopped(uint32_t token, uint8_t actv_idx, uint16_t reason)
 {
-//     DUMP_STR(0, "INIT_STOPPED(%d, %d, %d)\n", token, actv_idx, reason);
     le_central_process(INITIATION_STOPPED, GAP_ERR_NO_ERROR, NULL);
 }
 
@@ -297,8 +241,8 @@ static uint16_t create_and_start_conn(void)
 
 	params.prop				= GAPM_INIT_PROP_1M_BIT,
 	params.conn_to				= 0,	
-	params.scan_param_1m.scan_intv		= 60, // 100ms
-	params.scan_param_1m.scan_wd		= 60, // 50ms
+	params.scan_param_1m.scan_intv		= 60, // 37.5ms
+	params.scan_param_1m.scan_wd		= 60, // 37.5ms
 	params.scan_param_coded.scan_intv	= 0, // disabled
 	params.scan_param_coded.scan_wd		= 0, // disabled	
 	params.conn_param_1m.conn_intv_min	= 40, // 50ms
@@ -343,13 +287,10 @@ static uint16_t create_and_start_conn(void)
 
 static void app_scan_proc_cmp(uint32_t token, uint8_t proc_id, uint8_t actv_idx, uint16_t status)
 {
-//     DUMP_STR(0, "SCAN_PROC_CMP(%d, %d, %d, %d)\n", token, proc_id, actv_idx, status);
 }
 
 static void app_scan_stopped(uint32_t token, uint8_t actv_idx, uint16_t reason)
 {
-//     DUMP_STR(0, "SCAN_STOPPED(%d, %d, %d)\n", token, actv_idx, reason);
-//     app_state_transition(APP_LE_SCAN_STOPPED, GAP_ERR_NO_ERROR, &actv_idx);
 }
 
 static const char le_periph_device_name[]  = "ALIF_BATT_BLE";
@@ -373,20 +314,15 @@ bool peripheral_name_matches(co_buf_t* p_data, const char* p_exp_name)
 
 static void app_scan_adv_report_received(uint32_t metainfo, uint8_t actv_idx, const gapm_le_adv_report_info_t* p_info, co_buf_t* p_report)
 {
-//     DUMP_STR(0, "ADV_REPORT_RECEIVED(%d)\n", actv_idx);
-
 	printk("scan report\n");
     if(peripheral_name_matches(p_report, le_periph_device_name))
     {
         central_env.periph_addr  = p_info->trans_addr;
         central_env.periph_found = true;
 
-        // app_state_transition(APP_LE_PERIPH_FOUND, GAP_ERR_NO_ERROR, &actv_idx);
-
 	le_central_process(PERIPHERAL_FOUND, 0, NULL);
     }
 }
-
 
 /// Callback structure required to create a scan activity
 static const gapm_le_scan_cb_actv_t scan_actv_cb_itf = {
@@ -401,19 +337,13 @@ uint16_t create_and_start_scan(void)
 {
 	printk("scanning\n");
 	uint16_t status;
-	// uint8_t scan_actv_idx = 0;
-        // create activity
+
         status = gapm_le_create_scan(0, GAPM_STATIC_ADDR, &scan_actv_cb_itf, &central_env.scan_actv_idx);
         if(status != GAP_ERR_NO_ERROR) return status;
 
         // start it
         status = gapm_le_start_scan(central_env.scan_actv_idx, &param);
 	return 0;
-}
-
-static void on_disconnect_cmp(uint8_t conidx, uint32_t metainfo, uint16_t status)
-{
-	printk("Disconnected\n");
 }
 
 static void le_central_process(uint8_t event, uint16_t status, const void* p_param)
@@ -447,53 +377,25 @@ static void le_central_process(uint8_t event, uint16_t status, const void* p_par
 			printk("failed stop\n");
 			break; /* Log also error */
 		}
-		// status = gapc_disconnect(central_env.conidx, 0, LL_ERR_REMOTE_USER_TERM_CON, on_disconnect_cmp);
-		
-		// k_sleep(K_SECONDS(5));
-		// printk("restarting scan\n");
-		// status = gapm_le_start_scan(central_env.scan_actv_idx, &param);
-		// if (status) {
-		// 	printk("restarting scan failed\n");
-		// }
 		if (central_env.connected) {
 			printk("calling process from main\n");
 			profile_client_process(central_env.conidx, 0);
 		}
 		break;
 
-	case TIMER_EXPIRED:
-		// status = gapc_disconnect(central_env.conidx, 0, LL_ERR_REMOTE_USER_TERM_CON, on_disconnect_cmp);
-		// k_sleep(K_SECONDS(5));
-		// printk("restarting scan\n");
-		// status = gapm_le_start_scan(central_env.scan_actv_idx, &param);
-		// if (status) {
-		// 	printk("restarting scan failed\n");
-		// }
-		 break;
-
+	default:
+		break;
 	}
-}
-
-static void on_timer_expired(co_timer_t* p_timer)
-{
-	le_central_process(TIMER_EXPIRED, GAP_ERR_NO_ERROR, NULL);
 }
 
 static void on_gapm_process_complete(uint32_t metainfo, uint16_t status)
 {
 	printk("gapm configure complete\n");
-
 	
-	co_timer_config(&(central_env.timer), on_timer_expired);
-
-	
-		k_sem_give(&init_sem);
+	k_sem_give(&init_sem);
 	
 	le_central_process (DEVICE_CONFIGURED, status, NULL);
 }
-
-
-
 
 int main (void)
 {
@@ -510,15 +412,6 @@ int main (void)
 		LOG_ERR("gapm_configure error 0x%2X", err);
 		return -1;
 	}
-
-	
-
-	/* LE create and connect to found peripheral */
-
-	/* if connected start custom client process */
-
-	/* if disconnected start scanning again */
-
 	
 	LOG_DBG("Waiting for init...\n");
 	k_sem_take(&init_sem, K_FOREVER);
@@ -526,19 +419,8 @@ int main (void)
 	printk("main add profile\n");
 	add_profile_client();
 
-	
-	// 	k_sleep(K_SECONDS(3));
-	// co_timer_config(&(central_env.timer), on_timer_expired);
-
-
-
-	int i = 0;
 	while (1) {
 		k_sleep(K_MSEC(100));
-		// printk("blinky %u\n", i);
-		i++;
-
-
 	}
 	return 0;
 }
