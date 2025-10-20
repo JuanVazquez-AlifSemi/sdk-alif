@@ -20,5 +20,7 @@ target_include_directories(app PRIVATE
 target_sources(app PRIVATE
 	src/main.c
  	../common/batt_cli.c
+	../common/central_itf.c
+	../common/client_profile_manager.c
 	${COMMON_SRCS}
 )
