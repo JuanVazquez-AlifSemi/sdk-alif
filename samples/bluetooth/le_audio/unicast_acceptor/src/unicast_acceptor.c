@@ -20,6 +20,8 @@
 #include "hap_has.h"
 #include "hap.h"
 #include "arc_vcs.h"
+#include "atc_csism.h"
+#include "csis.h"
 
 #include "bluetooth/le_audio/audio_utils.h"
 
@@ -80,6 +82,20 @@ struct volume {
 };
 
 static struct volume env_volume;
+
+/* CSIS (Coordinated Set Identification Service) configuration */
+#define CSIS_SET_SIZE 2
+#define CSIS_SET_RANK 1
+#define CSIS_LOCK_TIMEOUT_S 60
+
+/* SIRK - Set Identity Resolving Key (must be unique for each set) */
+static const uint8_t CSIS_SIRK[16] = {
+	0xcd, 0xcc, 0x72, 0xdd, 0x86, 0x8c, 0xcd, 0xce,
+	0x22, 0xfd, 0xa1, 0x21, 0x09, 0x7d, 0x7d, 0x45
+};
+
+static uint8_t csis_set_lid = GAF_INVALID_LID;
+static K_SEM_DEFINE(csis_add_sem, 0, 1);
 
 enum {
 	ASE_DIR_UNKNOWN = 0,
@@ -1204,6 +1220,95 @@ int init_volume_control_service(void)
 }
 
 /* ---------------------------------------------------------------------------------------- */
+/* CSIS (Coordinated Set Identification Service) callbacks */
+
+static void on_csism_lock(uint8_t set_lid, uint8_t lock, uint8_t con_lid, uint8_t reason)
+{
+	LOG_DBG("CSIS lock state changed: set_lid=%u, lock=%u, con_lid=%u, reason=%u",
+		set_lid, lock, con_lid, reason);
+}
+
+static void on_csism_bond_data(uint8_t set_lid, uint8_t con_lid, uint8_t cli_cfg_bf)
+{
+	LOG_DBG("CSIS bond data: set_lid=%u, con_lid=%u, cli_cfg_bf=0x%02X",
+		set_lid, con_lid, cli_cfg_bf);
+}
+
+static void on_csism_ltk_req(uint8_t set_lid, uint8_t con_lid)
+{
+	LOG_DBG("CSIS LTK request: set_lid=%u, con_lid=%u", set_lid, con_lid);
+	/* Provide LTK for SIRK encryption if privacy is enabled */
+	atc_csism_ltk_cfm(gapm_sec_get_ltk(con_lid));
+}
+
+static void on_csism_rsi(uint8_t set_lid, const csis_rsi_t *p_rsi)
+{
+	if (p_rsi) {
+		LOG_DBG("CSIS RSI generated: set_lid=%u, RSI=%02X%02X%02X%02X%02X%02X",
+			set_lid, p_rsi->rsi[0], p_rsi->rsi[1], p_rsi->rsi[2],
+			p_rsi->rsi[3], p_rsi->rsi[4], p_rsi->rsi[5]);
+	}
+}
+
+static void on_csism_cmp_evt(uint16_t cmd_code, uint16_t status, uint8_t set_lid)
+{
+	LOG_DBG("CSIS command completed: cmd=0x%04X, status=%u, set_lid=%u",
+		cmd_code, status, set_lid);
+
+	if (cmd_code == ATC_CSISM_CMD_TYPE_ADD && status == GAF_ERR_NO_ERROR) {
+		csis_set_lid = set_lid;
+		LOG_INF("CSIS instance added successfully with set_lid=%u", set_lid);
+		k_sem_give(&csis_add_sem);
+	}
+}
+
+static const atc_csism_cb_t csism_callbacks = {
+	.cb_lock = on_csism_lock,
+	.cb_bond_data = on_csism_bond_data,
+	.cb_ltk_req = on_csism_ltk_req,
+	.cb_rsi = on_csism_rsi,
+	.cb_cmp_evt = on_csism_cmp_evt,
+};
+
+static int init_csis(void)
+{
+	uint16_t err;
+	uint8_t cfg_bf = CSISM_ADD_CFG_SIZE_BIT | CSISM_ADD_CFG_RANK_BIT | CSISM_ADD_CFG_LOCK_BIT;
+
+	/* Configure CSIS module */
+	err = atc_csism_configure(1, &csism_callbacks);
+	if (err != GAF_ERR_NO_ERROR) {
+		LOG_ERR("Failed to configure CSIS module! Error %u (0x%02X)", err, err);
+		return -1;
+	}
+	LOG_DBG("CSIS module configured");
+
+	/* Add CSIS instance */
+	err = atc_csism_add(cfg_bf, CSIS_SET_SIZE, CSIS_SET_RANK, CSIS_LOCK_TIMEOUT_S,
+			    GATT_INVALID_HDL, (const csis_sirk_t *)CSIS_SIRK);
+	if (err != GAF_ERR_NO_ERROR) {
+		LOG_ERR("Failed to add CSIS instance! Error %u (0x%02X)", err, err);
+		return -1;
+	}
+
+	/* Wait for CSIS instance to be added */
+	if (k_sem_take(&csis_add_sem, K_SECONDS(5)) != 0) {
+		LOG_ERR("Timeout waiting for CSIS instance to be added");
+		return -1;
+	}
+
+	if (csis_set_lid == GAF_INVALID_LID) {
+		LOG_ERR("CSIS set_lid is invalid after add");
+		return -1;
+	}
+
+	LOG_INF("CSIS is configured with set_lid=%u, size=%u, rank=%u",
+		csis_set_lid, CSIS_SET_SIZE, CSIS_SET_RANK);
+
+	return 0;
+}
+
+/* ---------------------------------------------------------------------------------------- */
 
 static int preinit_unicast_acceptor(void)
 {
@@ -1229,6 +1334,25 @@ int unicast_acceptor_init(void)
 		return -1;
 	}
 	LOG_DBG("GAF advertiser is configured");
+
+	/* Initialize CSIS (Coordinated Set Identification Service) */
+	if (init_csis() != 0) {
+		LOG_ERR("Failed to initialize CSIS");
+		return -1;
+	}
+
+	/* Configure Common Audio Service (CAS) with CSIS */
+	cap_cas_cfg_param_t cas_cfg = {
+		.set_lid = csis_set_lid,  /* Link CAS with CSIS instance */
+		.shdl = GATT_INVALID_HDL,
+	};
+
+	err = cap_cas_configure(&cas_cfg);
+	if (err != GAF_ERR_NO_ERROR) {
+		LOG_ERR("Unable to configure CAS! Error %u (0x%02X)", err, err);
+		return -1;
+	}
+	LOG_DBG("Common Audio Service (CAS) is configured");
 
 	unicast_env.ase_config_sink.nb_ases = __builtin_popcount(LOCATION_SINK);
 	unicast_env.ase_config_src.nb_ases = __builtin_popcount(LOCATION_SOURCE);

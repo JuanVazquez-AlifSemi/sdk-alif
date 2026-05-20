@@ -79,7 +79,7 @@ static gapm_config_t gapm_cfg = {
 };
 
 #define DEVICE_NAME      CONFIG_BLE_DEVICE_NAME
-#define SAMPLE_ADDR_TYPE ALIF_STATIC_RAND_ADDR
+#define SAMPLE_ADDR_TYPE ALIF_PUBLIC_ADDR
 
 /* -------------------------------------------------------------------------
  * DIS characteristic values

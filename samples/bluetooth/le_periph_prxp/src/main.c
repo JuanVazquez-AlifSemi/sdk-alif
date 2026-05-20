@@ -37,7 +37,7 @@
 #include "prxp_app.h"
 
 /* Define advertising address type */
-#define SAMPLE_ADDR_TYPE	ALIF_STATIC_RAND_ADDR
+#define SAMPLE_ADDR_TYPE	ALIF_PUBLIC_ADDR
 
 /* Store and share advertising address type */
 static uint8_t adv_type;

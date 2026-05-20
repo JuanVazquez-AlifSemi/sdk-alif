@@ -1,0 +1,13 @@
+sample:
+  name: BLE Media Control Service Sample
+  description: Demonstrates the Media Control Service (MCS) BLE profile
+    using the Alif/RivieraWaves host stack
+common:
+  tags: sad bluetooth
+  platform_allow:
+    - alif_b1_dk/ab1c1f4m51820ph0/rtss_he
+  integration_platforms:
+    - alif_b1_dk/ab1c1f4m51820ph0/rtss_he
+tests:
+  sad.bluetooth.le_periph_mcs:
+    harness: bluetooth

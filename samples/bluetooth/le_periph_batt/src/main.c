@@ -32,7 +32,7 @@
 #include "gapm_api.h"
 
 #define BATT_INSTANCE              0x00
-#define SAMPLE_ADDR_TYPE           ALIF_STATIC_RAND_ADDR /* Static random address */
+#define SAMPLE_ADDR_TYPE           ALIF_PUBLIC_ADDR /* Static random address */
 
 extern void service_conn(struct shared_control *ctrl);
 struct shared_control ctrl = {false, 0, 0};
